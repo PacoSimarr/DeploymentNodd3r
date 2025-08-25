@@ -1,0 +1,9 @@
+streamlit
+opencv-python-headless
+scikit-learn
+joblib
+pillow
+pandas
+matplotlib
+streamlit_drawable_canvas
+Jinja2
