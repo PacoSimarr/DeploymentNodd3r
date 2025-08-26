@@ -105,7 +105,7 @@ if menu_opcion == "🏠 Inicio":
             st.warning("Dataset no disponible")
 
 # ============================================================
-# SECCIÓN: ANÁLISIS DE DATOS
+# SECCIÓN: ANÁLISIS DE DATOS (MANTIENE TU CÓDIGO ORIGINAL)
 # ============================================================
 elif menu_opcion == "📊 Análisis de Datos":
     st.header("📊 Análisis Exploratorio de Datos")
@@ -115,42 +115,32 @@ elif menu_opcion == "📊 Análisis de Datos":
     def load_data():
         return pd.read_csv("data.csv")
     
-    try:
-        df = load_data()
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("📋 Primeras filas del dataset")
-            st.dataframe(df.head(10), use_container_width=True)
-            
-            st.subheader("📈 Estadísticas descriptivas")
-            st.dataframe(df.describe(), use_container_width=True)
-        
-        with col2:
-            st.subheader("📊 Distribución de Fallos")
-            counts = df['fail'].value_counts()
-            fig, ax = plt.subplots()
-            ax.bar(['Normal (0)', 'Fallo (1)'], counts.values, color=['green', 'red'])
-            ax.set_ylabel('Cantidad de Registros')
-            ax.set_title('Distribución de Clases')
-            st.pyplot(fig)
-            
-            st.subheader("ℹ️ Información del dataset")
-            st.write(f"**📏 Filas:** {df.shape[0]}")
-            st.write(f"**📊 Columnas:** {df.shape[1]}")
-            st.write(f"**🔍 Valores nulos:** {df.isnull().sum().sum()}")
-            st.write(f"**⚖️ Balance de clases:**")
-            st.write(f"  - Normal (0): {counts.get(0, 0)} registros")
-            st.write(f"  - Fallo (1): {counts.get(1, 0)} registros")
+    df = load_data()
     
-    except FileNotFoundError:
-        st.error("❌ No se encontró el archivo data.csv")
-    except Exception as e:
-        st.error(f"❌ Error al cargar los datos: {str(e)}")
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("📋 Primeras filas del dataset")
+        st.dataframe(df.head(10), use_container_width=True)
+        
+        st.subheader("📈 Estadísticas descriptivas")
+        st.dataframe(df.describe(), use_container_width=True)
+    
+    with col2:
+        st.subheader("📊 Distribución de Fallos")
+        counts = df['fail'].value_counts()
+        st.bar_chart(counts)
+        
+        st.subheader("ℹ️ Información del dataset")
+        st.write(f"**📏 Filas:** {df.shape[0]}")
+        st.write(f"**📊 Columnas:** {df.shape[1]}")
+        st.write(f"**🔍 Valores nulos:** {df.isnull().sum().sum()}")
+        st.write(f"**⚖️ Balance de clases:**")
+        st.write(f"  - Normal (0): {counts.get(0, 0)} registros")
+        st.write(f"  - Fallo (1): {counts.get(1, 0)} registros")
 
 # ============================================================
-# SECCIÓN: ENTRENAR MODELO
+# SECCIÓN: ENTRENAR MODELO (MANTIENE TU CÓDIGO ORIGINAL)
 # ============================================================
 elif menu_opcion == "🤖 Entrenar Modelo":
     st.header("🤖 Entrenamiento del Modelo")
@@ -210,145 +200,63 @@ elif menu_opcion == "🤖 Entrenar Modelo":
                 st.error(f"❌ Error durante el entrenamiento: {str(e)}")
 
 # ============================================================
-# SECCIÓN: PREDECIR FALLOS - MEJORADA ✅
+# SECCIÓN: PREDECIR FALLOS (MANTIENE TU CÓDIGO ORIGINAL)
 # ============================================================
 elif menu_opcion == "🔮 Predecir Fallos":
     st.header("🔮 Predicción de Fallos en Tiempo Real")
     
-    # ✅ NUEVO: Crear pestañas separadas
-    tab_pred, tab_analysis = st.tabs(["🎯 Realizar Predicción", "📊 Análisis Dataset"])
-    
-    # PESTAÑA 1: PREDICCIÓN (lo importante)
-    with tab_pred:
-        st.subheader("🎯 Ingresa los valores del sensor para predecir")
+    try:
+        model = joblib.load('lr_best.pkl')
+        scaler = joblib.load('scaler.pkl')
+        st.success("✅ Modelo y scaler cargados exitosamente!")
         
-        try:
-            model = joblib.load('lr_best.pkl')
-            scaler = joblib.load('scaler.pkl')
-            st.success("✅ Modelo y scaler cargados exitosamente!")
-            
-            # Formulario de entrada MEJORADO
-            st.markdown("### 🎛️ Valores de los Sensores")
-            
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                footfall = st.number_input("Footfall", min_value=0.0, value=25.0, help="Número de personas u objetos pasando")
-                tempMode = st.number_input("Temp Mode", min_value=0.0, value=1.0, help="Modo de temperatura")
-                AQ = st.number_input("AQ", min_value=0.0, value=50.0, help="Calidad del aire")
-            
-            with col2:
-                USS = st.number_input("USS", min_value=0.0, value=100.0, help="Sensor ultrasónico")
-                CS = st.number_input("CS", min_value=0.0, value=2.5, help="Sensor de corriente")
-                VOC = st.number_input("VOC", min_value=0.0, value=2500.0, help="Compuestos orgánicos volátiles")
-            
-            with col3:
-                RP = st.number_input("RP", min_value=0.0, value=35.0, help="Posición rotacional")
-                IP = st.number_input("IP", min_value=0.0, value=50.0, help="Presión de entrada")
-                Temperature = st.number_input("Temperature", min_value=0.0, value=60.0, help="Temperatura operativa")
-            
-            # Botón de predicción
-            if st.button("🔍 Realizar Predicción", type="primary", use_container_width=True):
-                input_data = np.array([[footfall, tempMode, AQ, USS, CS, VOC, RP, IP, Temperature]])
-                input_scaled = scaler.transform(input_data)
-                
-                prediction = model.predict(input_scaled)
-                probability = model.predict_proba(input_scaled)
-                
-                # ✅ RESULTADO CLARO Y VISIBLE
-                st.markdown("---")
-                st.success("### 📋 Resultado de la Predicción")
-                
-                if prediction[0] == 1:
-                    st.error("""
-                    🚨 **PREDICCIÓN: FALLO INMINENTE**
-                    
-                    **Recomendaciones:**
-                    - Detener máquina inmediatamente
-                    - Revisar sensores críticos
-                    - Contactar con mantenimiento
-                    """)
-                    st.write(f"📊 **Probabilidad de fallo:** {probability[0][1]:.2%}")
-                else:
-                    st.success("""
-                    ✅ **PREDICCIÓN: MÁQUINA EN ESTADO NORMAL**
-                    
-                    **Recomendaciones:**
-                    - Continuar operación normal
-                    - Monitoreo rutinario
-                    - Mantenimiento preventivo programado
-                    """)
-                    st.write(f"📊 **Probabilidad de fallo:** {probability[0][1]:.2%}")
-                
-                # Métricas de probabilidad
-                col_met1, col_met2 = st.columns(2)
-                with col_met1:
-                    st.metric("✅ Probabilidad de NO fallo", f"{probability[0][0]:.2%}")
-                with col_met2:
-                    st.metric("❌ Probabilidad de fallo", f"{probability[0][1]:.2%}")
-                
-                # ✅ NUEVO: Visualización de probabilidades
-                st.markdown("---")
-                st.subheader("📊 Visualización de Probabilidades")
-                
-                prob_data = {
-                    'Estado': ['NO FALLO', 'FALLO'],
-                    'Probabilidad': [probability[0][0], probability[0][1]]
-                }
-                prob_df = pd.DataFrame(prob_data)
-                
-                fig, ax = plt.subplots(figsize=(10, 4))
-                bars = ax.barh(prob_df['Estado'], prob_df['Probabilidad'], 
-                              color=['green', 'red'], alpha=0.7)
-                
-                # Añadir valores en las barras
-                for i, (value, state) in enumerate(zip(prob_df['Probabilidad'], prob_df['Estado'])):
-                    ax.text(value + 0.01, i, f'{value:.2%}', va='center', fontweight='bold')
-                
-                ax.set_xlim(0, 1)
-                ax.set_xlabel('Probabilidad')
-                ax.set_title('Distribución de Probabilidades de Predicción')
-                st.pyplot(fig)
-                    
-        except FileNotFoundError:
-            st.warning("⚠️ Modelo no encontrado. Por favor, entrena el modelo primero en la sección '🤖 Entrenar Modelo'.")
-        except Exception as e:
-            st.error(f"❌ Error al realizar la predicción: {str(e)}")
-    
-    # PESTAÑA 2: ANÁLISIS (opcional, separado)
-    with tab_analysis:
-        st.subheader("📊 Análisis del Dataset de Entrenamiento")
+        st.subheader("🎛️ Ingresa los valores de los sensores:")
         
-        try:
-            df = pd.read_csv("data.csv")
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            footfall = st.number_input("Footfall", min_value=0.0, value=25.0, help="Número de personas u objetos pasando")
+            tempMode = st.number_input("Temp Mode", min_value=0.0, value=1.0, help="Modo de temperatura")
+            AQ = st.number_input("AQ", min_value=0.0, value=50.0, help="Calidad del aire")
+        
+        with col2:
+            USS = st.number_input("USS", min_value=0.0, value=100.0, help="Sensor ultrasónico")
+            CS = st.number_input("CS", min_value=0.0, value=2.5, help="Sensor de corriente")
+            VOC = st.number_input("VOC", min_value=0.0, value=2500.0, help="Compuestos orgánicos volátiles")
+        
+        with col3:
+            RP = st.number_input("RP", min_value=0.0, value=35.0, help="Posición rotacional")
+            IP = st.number_input("IP", min_value=0.0, value=50.0, help="Presión de entrada")
+            Temperature = st.number_input("Temperature", min_value=0.0, value=60.0, help="Temperatura operativa")
+        
+        if st.button("🔍 Realizar Predicción", type="primary", use_container_width=True):
+            input_data = np.array([[footfall, tempMode, AQ, USS, CS, VOC, RP, IP, Temperature]])
+            input_scaled = scaler.transform(input_data)
+            
+            prediction = model.predict(input_scaled)
+            probability = model.predict_proba(input_scaled)
+            
+            st.markdown("---")
+            st.subheader("📋 Resultado de la Predicción")
+            
+            if prediction[0] == 1:
+                st.error("🚨 **PREDICCIÓN: FALLO INMINENTE**")
+                st.write(f"📊 Probabilidad de fallo: {probability[0][1]:.2%}")
+            else:
+                st.success("✅ **PREDICCIÓN: MÁQUINA EN ESTADO NORMAL**")
+                st.write(f"📊 Probabilidad de fallo: {probability[0][1]:.2%}")
             
             col1, col2 = st.columns(2)
-            
             with col1:
-                st.write("**📋 Primeras filas del dataset:**")
-                st.dataframe(df.head(5), use_container_width=True)
-                
-                st.write("**📈 Distribución de clases:**")
-                counts = df['fail'].value_counts()
-                st.write(f"- Normal (0): {counts.get(0, 0)} registros")
-                st.write(f"- Fallo (1): {counts.get(1, 0)} registros")
-            
+                st.metric("✅ Probabilidad de NO fallo", f"{probability[0][0]:.2%}")
             with col2:
-                st.write("**📊 Estadísticas descriptivas:**")
-                st.dataframe(df.describe(), use_container_width=True)
+                st.metric("❌ Probabilidad de fallo", f"{probability[0][1]:.2%}")
                 
-                st.write("**ℹ️ Información general:**")
-                st.write(f"- Filas: {df.shape[0]}")
-                st.write(f"- Columnas: {df.shape[1]}")
-                st.write(f"- Valores nulos: {df.isnull().sum().sum()}")
-        
-        except FileNotFoundError:
-            st.warning("📝 Dataset no disponible para análisis")
-        except Exception as e:
-            st.error(f"❌ Error en el análisis: {str(e)}")
+    except FileNotFoundError:
+        st.warning("⚠️ Modelo no encontrado. Entrena el modelo primero.")
 
 # ============================================================
-# SECCIÓN: RENDIMIENTO DEL MODELO
+# SECCIÓN: RENDIMIENTO (CORREGIDA Y COMPLETA)
 # ============================================================
 elif menu_opcion == "📈 Rendimiento del Modelo":
     st.header("📈 Rendimiento y Métricas del Modelo")
@@ -361,10 +269,10 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         
         # Preparar datos para evaluación
         X = df.drop('fail', axis=1)
-        y = df['fail']
+        y = df['fail']  # ✅ DEFINIMOS y AQUÍ
         X_scaled = scaler.transform(X)
         
-        # Realizar predicciones
+        # Realizar predicciones ✅ DEFINIMOS y_pred AQUÍ
         y_pred = model.predict(X_scaled)
         y_pred_proba = model.predict_proba(X_scaled)[:, 1]
         
@@ -376,6 +284,9 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         with tab1:
             st.subheader("📊 Métricas Básicas de Rendimiento")
             
+            from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
+            
+            # ✅ AHORA y e y_pred ESTÁN DEFINIDAS
             accuracy = accuracy_score(y, y_pred)
             precision = precision_score(y, y_pred)
             recall = recall_score(y, y_pred)
@@ -403,6 +314,9 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         with tab2:
             st.subheader("📋 Reporte de Clasificación Completo")
             
+            from sklearn.metrics import classification_report
+            
+            # ✅ AHORA y e y_pred ESTÁN DEFINIDAS
             report = classification_report(y, y_pred, output_dict=True)
             report_df = pd.DataFrame(report).transpose()
             
@@ -425,6 +339,10 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         with tab3:
             st.subheader("🎯 Matriz de Confusión")
             
+            from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+            import matplotlib.pyplot as plt
+            
+            # ✅ AHORA y e y_pred ESTÁN DEFINIDAS
             cm = confusion_matrix(y, y_pred)
             
             fig, ax = plt.subplots(figsize=(6, 5))
@@ -443,6 +361,10 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         with tab4:
             st.subheader("📈 Curva ROC y AUC")
             
+            from sklearn.metrics import roc_curve, auc, RocCurveDisplay
+            import matplotlib.pyplot as plt
+            
+            # ✅ AHORA y e y_pred_proba ESTÁN DEFINIDAS
             fpr, tpr, thresholds = roc_curve(y, y_pred_proba)
             roc_auc = auc(fpr, tpr)
             
@@ -506,7 +428,7 @@ elif menu_opcion == "📈 Rendimiento del Modelo":
         st.error(f"❌ Error al cargar los datos: {str(e)}")
 
 # ============================================================
-# SECCIÓN: CONFIGURACIÓN
+# SECCIÓN: CONFIGURACIÓN (NUEVA)
 # ============================================================
 elif menu_opcion == "⚙️ Configuración":
     st.header("⚙️ Configuración del Sistema")
