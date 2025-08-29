@@ -210,22 +210,24 @@ elif menu_opcion == "🤖 Entrenar Modelo":
                 st.error(f"❌ Error durante el entrenamiento: {str(e)}")
 
 # ============================================================
-# SECCIÓN: PREDECIR FALLOS - MEJORADA ✅
+# SECCIÓN: PREDECIR FALLOS - CON SHAP INTEGRADO (ACTUALIZADO)
 # ============================================================
 elif menu_opcion == "🔮 Predecir Fallos":
     st.header("🔮 Predicción de Fallos en Tiempo Real")
     
-    # ✅ NUEVO: Crear pestañas separadas
-    tab_pred, tab_analysis = st.tabs(["🎯 Realizar Predicción", "📊 Análisis Dataset"])
+    # Crear pestañas separadas
+    tab_pred, tab_analysis, tab_explain = st.tabs(["🎯 Realizar Predicción", "📊 Análisis Dataset", "📝 Explicación del Modelo (SHAP)"])
     
-    # PESTAÑA 1: PREDICCIÓN (lo importante)
+    # PESTAÑA 1: PREDICCIÓN
     with tab_pred:
         st.subheader("🎯 Ingresa los valores del sensor para predecir")
         
         try:
             model = joblib.load('lr_best.pkl')
             scaler = joblib.load('scaler.pkl')
-            st.success("✅ Modelo y scaler cargados exitosamente!")
+            df = pd.read_csv("data.csv")  # Cargar datos para el explainer
+            
+            st.success("✅ Modelo, scaler y datos cargados exitosamente!")
             
             # Formulario de entrada MEJORADO
             st.markdown("### 🎛️ Valores de los Sensores")
@@ -255,7 +257,7 @@ elif menu_opcion == "🔮 Predecir Fallos":
                 prediction = model.predict(input_scaled)
                 probability = model.predict_proba(input_scaled)
                 
-                # ✅ RESULTADO CLARO Y VISIBLE
+                # RESULTADO CLARO Y VISIBLE
                 st.markdown("---")
                 st.success("### 📋 Resultado de la Predicción")
                 
@@ -287,7 +289,7 @@ elif menu_opcion == "🔮 Predecir Fallos":
                 with col_met2:
                     st.metric("❌ Probabilidad de fallo", f"{probability[0][1]:.2%}")
                 
-                # ✅ NUEVO: Visualización de probabilidades
+                # Visualización de probabilidades
                 st.markdown("---")
                 st.subheader("📊 Visualización de Probabilidades")
                 
@@ -309,13 +311,19 @@ elif menu_opcion == "🔮 Predecir Fallos":
                 ax.set_xlabel('Probabilidad')
                 ax.set_title('Distribución de Probabilidades de Predicción')
                 st.pyplot(fig)
+                
+                # Guardar los datos de entrada para usar en la pestaña de explicación
+                st.session_state['input_data'] = input_data
+                st.session_state['input_scaled'] = input_scaled
+                st.session_state['prediction'] = prediction
+                st.session_state['probability'] = probability
                     
         except FileNotFoundError:
             st.warning("⚠️ Modelo no encontrado. Por favor, entrena el modelo primero en la sección '🤖 Entrenar Modelo'.")
         except Exception as e:
             st.error(f"❌ Error al realizar la predicción: {str(e)}")
     
-    # PESTAÑA 2: ANÁLISIS (opcional, separado)
+    # PESTAÑA 2: ANÁLISIS
     with tab_analysis:
         st.subheader("📊 Análisis del Dataset de Entrenamiento")
         
@@ -325,19 +333,19 @@ elif menu_opcion == "🔮 Predecir Fallos":
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write("**📋 Primeras filas del dataset:**")
+                st.write("📋 Primeras filas del dataset:")
                 st.dataframe(df.head(5), use_container_width=True)
                 
-                st.write("**📈 Distribución de clases:**")
+                st.write("📈 Distribución de clases:")
                 counts = df['fail'].value_counts()
                 st.write(f"- Normal (0): {counts.get(0, 0)} registros")
                 st.write(f"- Fallo (1): {counts.get(1, 0)} registros")
             
             with col2:
-                st.write("**📊 Estadísticas descriptivas:**")
+                st.write("📊 Estadísticas descriptivas:")
                 st.dataframe(df.describe(), use_container_width=True)
                 
-                st.write("**ℹ️ Información general:**")
+                st.write("ℹ️ Información general:")
                 st.write(f"- Filas: {df.shape[0]}")
                 st.write(f"- Columnas: {df.shape[1]}")
                 st.write(f"- Valores nulos: {df.isnull().sum().sum()}")
@@ -346,6 +354,149 @@ elif menu_opcion == "🔮 Predecir Fallos":
             st.warning("📝 Dataset no disponible para análisis")
         except Exception as e:
             st.error(f"❌ Error en el análisis: {str(e)}")
+            
+    # PESTAÑA 3: EXPLICACIÓN CON SHAP (CÓDIGO CORREGIDO)
+    with tab_explain:
+        st.subheader("📝 Explicación de la Predicción con SHAP")
+        
+        # DEBUG: Verificación mejorada de SHAP
+        try:
+            import shap
+            SHAP_AVAILABLE = True
+        except ImportError as e:
+            SHAP_AVAILABLE = False
+            st.error(f"❌ Error importando SHAP: {e}")
+        
+        if 'input_data' not in st.session_state:
+            st.info("ℹ️ Realiza una predicción primero para ver la explicación.")
+        else:
+            try:
+                if not SHAP_AVAILABLE:
+                    st.warning("🔧 SHAP no disponible temporalmente")
+                    st.info("""
+                    **Para habilitar explicaciones completas:**
+                    - Reinicia la aplicación
+                    - Verifica que SHAP esté instalado
+                    """)
+                    
+                    # Mostrar los valores ingresados aunque no haya SHAP
+                    st.subheader("📋 Valores ingresados para predicción")
+                    feature_names = ['Footfall', 'Temp Mode', 'AQ', 'USS', 'CS', 'VOC', 'RP', 'IP', 'Temperature']
+                    input_df = pd.DataFrame(st.session_state['input_data'], columns=feature_names)
+                    st.dataframe(input_df, use_container_width=True)
+                    
+                else:
+                    # Cargar modelo y datos
+                    model = joblib.load('lr_best.pkl')
+                    df = pd.read_csv("data.csv")
+                    X = df.drop('fail', axis=1)
+                    
+                    # Preparar datos para SHAP
+                    input_data = st.session_state['input_data']
+                    input_scaled = st.session_state['input_scaled']
+                    prediction = st.session_state['prediction']
+                    probability = st.session_state['probability']
+                    
+                    # Crear explainer de SHAP - compatible con v0.48.0
+                    with st.spinner("Calculando explicación con SHAP..."):
+                        # Para modelos lineales como Logistic Regression
+                        explainer = shap.LinearExplainer(model, X)
+                        shap_values = explainer(input_scaled)
+                        
+                        # Mostrar fuerza de la predicción
+                        st.subheader("📊 Contribución de cada característica")
+                        
+                        # Obtener nombres de características
+                        feature_names = X.columns.tolist()
+                        
+                        # Crear un DataFrame con los valores SHAP
+                        shap_df = pd.DataFrame({
+                            'Característica': feature_names,
+                            'Valor SHAP': shap_values.values[0],
+                            'Impacto': ['Aumenta riesgo' if x > 0 else 'Reduce riesgo' for x in shap_values.values[0]]
+                        }).sort_values('Valor SHAP', key=abs, ascending=False)
+                        
+                        # Mostrar tabla de contribuciones
+                        st.dataframe(shap_df, use_container_width=True)
+                        
+                        # VISUALIZACIÓN CORREGIDA - usar bar plot en lugar de force plot
+                        st.subheader("📈 Contribución de características (Gráfico de barras)")
+                        
+                        # Crear gráfico de barras horizontal
+                        fig, ax = plt.subplots(figsize=(12, 8))
+                        
+                        # Ordenar por valor absoluto para mejor visualización
+                        sorted_idx = np.argsort(np.abs(shap_values.values[0]))
+                        
+                        colors = ['red' if x > 0 else 'blue' for x in shap_values.values[0]]
+                        
+                        y_pos = np.arange(len(feature_names))
+                        ax.barh(y_pos, shap_values.values[0][sorted_idx], color=np.array(colors)[sorted_idx], alpha=0.7)
+                        ax.set_yticks(y_pos)
+                        ax.set_yticklabels(np.array(feature_names)[sorted_idx])
+                        ax.set_xlabel('Valor SHAP (Impacto en la predicción)')
+                        ax.set_title('Contribución de cada característica a la predicción')
+                        ax.axvline(x=0, color='black', linestyle='--', alpha=0.5)
+                        
+                        # Añadir valores en las barras
+                        for i, v in enumerate(shap_values.values[0][sorted_idx]):
+                            ax.text(v + (0.01 if v >= 0 else -0.05), i, f'{v:.3f}', 
+                                   va='center', fontweight='bold', 
+                                   color='black' if abs(v) < 0.1 else 'white')
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        
+                        # VALORES ESPECÍFICOS PARA DEBUG
+                        with st.expander("🔍 Valores detallados para diagnóstico"):
+                            st.write("**Valor esperado (base value):**", explainer.expected_value)
+                            st.write("**Valores SHAP:**", shap_values.values[0])
+                            st.write("**Suma de valores SHAP:**", np.sum(shap_values.values[0]))
+                            st.write("**Predicción final:**", explainer.expected_value + np.sum(shap_values.values[0]))
+                        
+                        # Explicación en texto
+                        st.subheader("🧠 Interpretación de la explicación")
+                        
+                        # Encontrar las características más influyentes
+                        top_positive = shap_df.nlargest(3, 'Valor SHAP')
+                        top_negative = shap_df.nsmallest(3, 'Valor SHAP')
+                        
+                        if prediction[0] == 1:
+                            st.write("""
+                            **🚨 La máquina tiene alta probabilidad de fallo debido a:**
+                            - Valores anómalos en los sensores con mayor impacto positivo
+                            - Combinación de factors que exceden los umbrales seguros
+                            """)
+                            
+                            st.write("**📈 Factores que más aumentan el riesgo:**")
+                            for _, row in top_positive.iterrows():
+                                st.write(f"  - **{row['Característica']}**: {row['Valor SHAP']:.3f}")
+                                
+                        else:
+                            st.write("""
+                            **✅ La máquina opera normalmente porque:**
+                            - Los valores de los sensores están dentro de rangos normales
+                            - Los factores que reducen el riesgo contrarrestan los de riesgo
+                            """)
+                            
+                            st.write("**📉 Factores que más reducen el riesgo:**")
+                            for _, row in top_negative.iterrows():
+                                st.write(f"  - **{row['Característica']}**: {row['Valor SHAP']:.3f}")
+                        
+                        # Mostrar los valores reales ingresados
+                        st.subheader("📋 Valores ingresados")
+                        input_df = pd.DataFrame(input_data, columns=feature_names)
+                        st.dataframe(input_df, use_container_width=True)
+                    
+            except Exception as e:
+                st.error(f"❌ Error al generar la explicación: {str(e)}")
+                import traceback
+                with st.expander("🔍 Ver detalles del error"):
+                    st.code(traceback.format_exc())
+
+# ============================================================
+# FIN SECCIÓN: PREDECIR FALLOS
+# ============================================================
 
 # ============================================================
 # SECCIÓN: RENDIMIENTO DEL MODELO
